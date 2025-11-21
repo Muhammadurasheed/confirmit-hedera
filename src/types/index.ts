@@ -32,6 +32,24 @@ export interface AnalysisResult {
   merchant?: MerchantInfo;
   ocr_text?: string; // OCR extracted text
   agent_logs?: AgentLog[]; // Agent execution logs
+  agent_marketplace?: {
+    enabled: boolean;
+    total_cost_tinybar: number;
+    total_cost_hbar: number;
+    total_cost_usd: number;
+    transactions: Array<{
+      agentName: string;
+      serviceType: string;
+      amount: number;
+      amountHbar: number;
+      transactionId: string;
+      requestId: number;
+      status: string;
+      timestamp: string;
+      duration?: number;
+    }>;
+    agent_count: number;
+  };
 }
 
 export interface Issue {
