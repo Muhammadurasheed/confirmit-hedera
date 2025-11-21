@@ -148,6 +148,7 @@ export class ReceiptsService {
             manipulation_score: analysisResult.forensic_details?.manipulation_score || 0,
             metadata_flags: analysisResult.forensic_details?.metadata_flags || [],
             forensic_summary: analysisResult.forensic_details?.forensic_summary,
+            forensic_findings: analysisResult.forensic_details?.forensic_findings || [],  // NEW: Granular findings
             techniques_detected: analysisResult.forensic_details?.techniques_detected || [],
             authenticity_indicators: analysisResult.forensic_details?.authenticity_indicators || [],
             forensic_progress: analysisResult.forensic_details?.forensic_progress || [],

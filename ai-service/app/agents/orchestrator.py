@@ -172,6 +172,7 @@ class ReceiptAnalysisOrchestrator:
                     "forensic_progress": self.forensic_progress_log,  # Detailed forensic steps
                     "forensic_verdict": agent_results.get("forensic", {}).get("verdict", "unclear"),
                     "forensic_summary": agent_results.get("forensic", {}).get("summary", ""),
+                    "forensic_findings": agent_results.get("forensic", {}).get("forensic_findings", []),  # NEW: Granular findings
                     "techniques_detected": agent_results.get("forensic", {}).get("techniques_detected", []),
                     "authenticity_indicators": agent_results.get("forensic", {}).get("authenticity_indicators", []),
                     "technical_details": agent_results.get("forensic", {}).get("technical_details", {}),

@@ -12,6 +12,7 @@ import { ForensicDetailsModal } from './ForensicDetailsModal';
 import { HederaAnchorModal } from './HederaAnchorModal';
 import { OCRTextDisplay } from './OCRTextDisplay';
 import { ELAHeatmapVisual } from './ELAHeatmapVisual';
+import { ForensicFindingsDisplay } from './ForensicFindingsDisplay';
 import HederaBadge from '@/components/shared/HederaBadge';
 
 interface ResultsDisplayProps {
@@ -33,6 +34,12 @@ interface ResultsDisplayProps {
     forensic_summary?: string;
     techniques_detected?: string[];
     authenticity_indicators?: string[];
+    forensic_findings?: Array<{
+      category: string;
+      severity: 'pass' | 'medium' | 'high' | 'critical';
+      finding: string;
+      explanation: string;
+    }>;
     technical_details?: any;
     forensic_progress?: Array<{
       stage: string;
@@ -250,6 +257,14 @@ export const ResultsDisplay = ({
 
         {/* Forensics Tab */}
         <TabsContent value="forensics" className="space-y-4 mt-6">
+          {/* Granular Forensic Findings - NEW */}
+          {safeForensicDetails.forensic_findings && safeForensicDetails.forensic_findings.length > 0 && (
+            <ForensicFindingsDisplay 
+              findings={safeForensicDetails.forensic_findings}
+              manipulationScore={safeForensicDetails.manipulation_score}
+            />
+          )}
+
           {/* ELA Heatmap Visualization */}
           {safeForensicDetails.technical_details?.ela_analysis?.heatmap && (
             <ELAHeatmapVisual
@@ -260,7 +275,7 @@ export const ResultsDisplay = ({
             />
           )}
 
-          {/* Forensic Summary Card */}
+          {/* Legacy Forensic Summary Card */}
           <Card className="p-6 space-y-6">
             {forensicDetails.forensic_summary && (
               <div className="p-4 bg-muted/50 rounded-lg">
