@@ -74,16 +74,78 @@ export class ReceiptsService {
   ) {
     const receiptRef = this.db.collection('receipts').doc(receiptId);
     const startTime = Date.now();
+    const agentTransactions: any[] = [];
 
     try {
+      // === A2A AGENT MARKETPLACE INTEGRATION ===
+      this.receiptsGateway.emitProgress(receiptId, 10, 'agent_discovery', '🔍 Discovering AI agents on Hedera marketplace...');
+      
+      const agentJobs = [
+        { type: 0, name: 'Vision Agent', stage: 'vision_analysis' },
+        { type: 1, name: 'Forensic Agent', stage: 'forensic_analysis' },
+        { type: 2, name: 'Metadata Agent', stage: 'metadata_validation' },
+        { type: 3, name: 'Reputation Agent', stage: 'reputation_check' },
+        { type: 4, name: 'Reasoning Agent', stage: 'reasoning_synthesis' },
+      ];
+
+      // Query marketplace for best agents (parallel to save time)
+      this.logger.log('🤖 Querying Agent Marketplace for best agents...');
+      const bestAgents = await Promise.all(
+        agentJobs.map(async (job) => {
+          try {
+            const agentAddress = await this.hederaService.getBestAgentForService(job.type);
+            const agentStats = await this.hederaService.getAgentStats(agentAddress);
+            return { ...job, address: agentAddress, stats: agentStats };
+          } catch (error) {
+            this.logger.warn(`Failed to query agent for ${job.name}: ${error.message}`);
+            return { ...job, address: null, stats: null };
+          }
+        })
+      );
+
+      this.logger.log(`✅ Found ${bestAgents.filter(a => a.address).length} agents ready for work`);
+      this.receiptsGateway.emitProgress(receiptId, 15, 'agents_selected', `✓ Selected ${bestAgents.filter(a => a.address).length} specialized agents`);
+
+      // === REQUEST AGENT SERVICES (A2A MICROPAYMENTS) ===
+      this.receiptsGateway.emitProgress(receiptId, 18, 'agent_coordination', '💰 Initiating A2A micropayments...');
+      
+      // Vision Agent - Start first
+      const visionAgent = bestAgents[0];
+      if (visionAgent.address) {
+        const txStart = Date.now();
+        try {
+          const result = await this.hederaService.requestAgentService(
+            visionAgent.address,
+            visionAgent.type,
+            `receipt:${receiptId}:vision`,
+            visionAgent.stats?.pricePerRequest || 1000000,
+          );
+          
+          agentTransactions.push({
+            agentName: visionAgent.name,
+            serviceType: visionAgent.stage,
+            amount: visionAgent.stats?.pricePerRequest || 1000000,
+            amountHbar: (visionAgent.stats?.pricePerRequest || 1000000) / 100000000,
+            transactionId: result.transactionId,
+            requestId: result.requestId,
+            status: 'completed',
+            timestamp: new Date().toISOString(),
+            duration: Date.now() - txStart,
+          });
+
+          this.receiptsGateway.emitProgress(
+            receiptId, 
+            22, 
+            'agent_payment_sent', 
+            `✓ Paid ${visionAgent.name} ℏ${((visionAgent.stats?.pricePerRequest || 1000000) / 100000000).toFixed(4)}`
+          );
+        } catch (error) {
+          this.logger.warn(`A2A payment to ${visionAgent.name} failed: ${error.message}`);
+        }
+      }
+
       // Send progress updates
-      this.receiptsGateway.emitProgress(receiptId, 20, 'ocr_started', 'Extracting text with AI...');
-
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate OCR
-
-      this.receiptsGateway.emitProgress(receiptId, 40, 'forensics_running', 'Running forensic analysis...');
-
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate forensics
+      this.receiptsGateway.emitProgress(receiptId, 25, 'ocr_started', '🤖 Vision Agent extracting text...');
 
       // Call AI service with proper error handling
       const aiServiceUrl = this.configService.get('aiService.url');
@@ -133,11 +195,60 @@ export class ReceiptsService {
         );
       }
 
-      this.receiptsGateway.emitProgress(receiptId, 80, 'analysis_complete', 'Analysis complete!');
+      // === COMPLETE AGENT SERVICES (A2A) ===
+      // Pay remaining agents after successful AI processing
+      for (let i = 1; i < bestAgents.length; i++) {
+        const agent = bestAgents[i];
+        if (agent.address) {
+          const txStart = Date.now();
+          try {
+            const result = await this.hederaService.requestAgentService(
+              agent.address,
+              agent.type,
+              `receipt:${receiptId}:${agent.stage}`,
+              agent.stats?.pricePerRequest || 1000000,
+            );
+            
+            agentTransactions.push({
+              agentName: agent.name,
+              serviceType: agent.stage,
+              amount: agent.stats?.pricePerRequest || 1000000,
+              amountHbar: (agent.stats?.pricePerRequest || 1000000) / 100000000,
+              transactionId: result.transactionId,
+              requestId: result.requestId,
+              status: 'completed',
+              timestamp: new Date().toISOString(),
+              duration: Date.now() - txStart,
+            });
 
-      // Store complete results with ALL data from AI service
+            this.receiptsGateway.emitProgress(
+              receiptId,
+              75 + (i * 2),
+              'agent_payment_sent',
+              `✓ Paid ${agent.name} ℏ${((agent.stats?.pricePerRequest || 1000000) / 100000000).toFixed(4)}`
+            );
+          } catch (error) {
+            this.logger.warn(`A2A payment to ${agent.name} failed: ${error.message}`);
+          }
+        }
+      }
+
+      const totalCost = agentTransactions.reduce((sum, tx) => sum + tx.amount, 0);
+      this.logger.log(`💰 Total A2A cost: ℏ${(totalCost / 100000000).toFixed(4)} (~$${((totalCost / 100000000) * 0.06).toFixed(4)})`);
+
+      this.receiptsGateway.emitProgress(receiptId, 85, 'analysis_complete', `✓ All agents completed! Cost: ℏ${(totalCost / 100000000).toFixed(4)}`);
+
+      // Store complete results with ALL data from AI service + A2A transactions
       await receiptRef.update({
         ocr_text: analysisResult.ocr_text || '',  // CRITICAL: Store OCR text at root level
+        agent_marketplace: {
+          enabled: true,
+          total_cost_tinybar: totalCost,
+          total_cost_hbar: totalCost / 100000000,
+          total_cost_usd: (totalCost / 100000000) * 0.06,
+          transactions: agentTransactions,
+          agent_count: agentTransactions.length,
+        },
         analysis: {
           trust_score: analysisResult.trust_score,
           verdict: analysisResult.verdict,
