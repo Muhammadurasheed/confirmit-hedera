@@ -80,15 +80,52 @@ export const useFirebaseReceiptProgress = ({
             callbacksRef.current.onProgress?.(progress);
           }
 
-          // Check for completion - CRITICAL: Pass FULL document, not just analysis
+          // Check for completion - CRITICAL: Pass FULL document with proper parsing
           if (data.status === 'completed' && data.analysis) {
             console.log('✅ Analysis completed:', data);
+            
+            // Parse forensic_findings if it's a string
+            let forensicDetails = data.analysis.forensic_details;
+            if (forensicDetails) {
+              // Parse forensic_findings if it's a JSON string
+              if (typeof forensicDetails.forensic_findings === 'string') {
+                try {
+                  forensicDetails.forensic_findings = JSON.parse(forensicDetails.forensic_findings);
+                  console.log('✅ Parsed forensic_findings from string');
+                } catch (e) {
+                  console.error('❌ Failed to parse forensic_findings:', e);
+                  forensicDetails.forensic_findings = [];
+                }
+              }
+              
+              // Parse technical_details if it's a JSON string
+              if (typeof forensicDetails.technical_details === 'string') {
+                try {
+                  forensicDetails.technical_details = JSON.parse(forensicDetails.technical_details);
+                  console.log('✅ Parsed technical_details from string');
+                } catch (e) {
+                  console.error('❌ Failed to parse technical_details:', e);
+                  forensicDetails.technical_details = {};
+                }
+              }
+            }
+            
             // Merge root-level fields with analysis object
             const completeData = {
               ...data.analysis,
               ocr_text: data.ocr_text || data.analysis.ocr_text || '',  // OCR text is at root level
               agent_logs: data.analysis.agent_logs || data.agent_logs || [],
+              forensic_details: forensicDetails,
             };
+            
+            console.log('📊 Complete data structure:', {
+              has_ocr_text: !!completeData.ocr_text,
+              ocr_text_length: completeData.ocr_text?.length || 0,
+              has_forensic_findings: Array.isArray(completeData.forensic_details?.forensic_findings),
+              forensic_findings_count: completeData.forensic_details?.forensic_findings?.length || 0,
+              has_technical_details: typeof completeData.forensic_details?.technical_details === 'object',
+            });
+            
             callbacksRef.current.onComplete?.(completeData);
           }
 

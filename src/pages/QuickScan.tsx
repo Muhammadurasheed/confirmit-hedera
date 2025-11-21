@@ -371,7 +371,7 @@ const QuickScan = () => {
                 <ResultsDisplay
                   receiptId={currentReceipt.receiptId}
                   receiptImageUrl={currentReceipt.storagePath}
-                  ocrText={results.ocr_text || ''}  // Pass OCR text
+                  ocrText={results.ocr_text || ''}
                   trustScore={(results.trust_score || results.trustScore || 0) as number}
                   verdict={(results.verdict || 'unclear') as any}
                   issues={results.issues || []}
@@ -381,19 +381,10 @@ const QuickScan = () => {
                     manipulation_score: (results.forensic_details?.manipulation_score || 0) as number,
                     metadata_flags: (results.forensic_details?.metadata_flags || []) as string[],
                     forensic_summary: results.forensic_details?.forensic_summary,
+                    forensic_findings: results.forensic_details?.forensic_findings || [],
                     techniques_detected: results.forensic_details?.techniques_detected || [],
                     authenticity_indicators: results.forensic_details?.authenticity_indicators || [],
-                    technical_details: results.forensic_details?.technical_details || {
-                      ela_analysis: {
-                        manipulation_detected: results.forensic_details?.manipulation_detected,
-                        heatmap: results.forensic_details?.heatmap,
-                        suspicious_regions: results.forensic_details?.suspicious_regions,
-                        image_dimensions: results.forensic_details?.image_dimensions,
-                        statistics: results.forensic_details?.statistics,
-                        pixel_diff: results.forensic_details?.pixel_diff,
-                        techniques: results.forensic_details?.techniques_detected || [],
-                      }
-                    },
+                    technical_details: results.forensic_details?.technical_details,
                     forensic_progress: results.forensic_details?.forensic_progress || [],
                     agent_logs: results.agent_logs || results.forensic_details?.agent_logs || [],
                   }}
