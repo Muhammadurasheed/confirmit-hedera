@@ -160,56 +160,29 @@ export class ReceiptsService {
 
       this.logger.log(`💾 Storing analysis results for ${receiptId}...`);
       
-      // CRITICAL FIX: Parse stringified JSON fields from AI service
+      // CRITICAL FIX: Helper to parse Python-style strings (single quotes) to JSON
+      const parsePythonJSON = (value: any): any => {
+        if (typeof value !== 'string') return value;
+        try {
+          return JSON.parse(value);
+        } catch (e) {
+          try {
+            const jsonCompatible = value
+              .replace(/'/g, '"').replace(/True/g, 'true')
+              .replace(/False/g, 'false').replace(/None/g, 'null');
+            return JSON.parse(jsonCompatible);
+          } catch (e2) {
+            this.logger.error(`❌ Failed to parse: ${e2.message}`);
+            return null;
+          }
+        }
+      };
+      
       const forensicDetails = analysisResult.forensic_details || {};
-      
-      // Parse forensic_findings if it's a JSON string
-      let forensicFindings = forensicDetails.forensic_findings || [];
-      if (typeof forensicFindings === 'string') {
-        try {
-          forensicFindings = JSON.parse(forensicFindings);
-          this.logger.log('✅ Parsed forensic_findings from JSON string');
-        } catch (e) {
-          this.logger.error(`❌ Failed to parse forensic_findings: ${e.message}`);
-          forensicFindings = [];
-        }
-      }
-      
-      // Parse technical_details if it's a JSON string
-      let technicalDetails = forensicDetails.technical_details || {};
-      if (typeof technicalDetails === 'string') {
-        try {
-          technicalDetails = JSON.parse(technicalDetails);
-          this.logger.log('✅ Parsed technical_details from JSON string');
-        } catch (e) {
-          this.logger.error(`❌ Failed to parse technical_details: ${e.message}`);
-          technicalDetails = {};
-        }
-      }
-      
-      // Parse techniques_detected if it's a JSON string
-      let techniquesDetected = forensicDetails.techniques_detected || [];
-      if (typeof techniquesDetected === 'string') {
-        try {
-          techniquesDetected = JSON.parse(techniquesDetected);
-          this.logger.log('✅ Parsed techniques_detected from JSON string');
-        } catch (e) {
-          this.logger.error(`❌ Failed to parse techniques_detected: ${e.message}`);
-          techniquesDetected = [];
-        }
-      }
-      
-      // Parse authenticity_indicators if it's a JSON string
-      let authenticityIndicators = forensicDetails.authenticity_indicators || [];
-      if (typeof authenticityIndicators === 'string') {
-        try {
-          authenticityIndicators = JSON.parse(authenticityIndicators);
-          this.logger.log('✅ Parsed authenticity_indicators from JSON string');
-        } catch (e) {
-          this.logger.error(`❌ Failed to parse authenticity_indicators: ${e.message}`);
-          authenticityIndicators = [];
-        }
-      }
+      let forensicFindings = parsePythonJSON(forensicDetails.forensic_findings) || [];
+      let technicalDetails = parsePythonJSON(forensicDetails.technical_details) || {};
+      let techniquesDetected = parsePythonJSON(forensicDetails.techniques_detected) || [];
+      let authenticityIndicators = parsePythonJSON(forensicDetails.authenticity_indicators) || [];
       
       this.logger.log(`📊 FINAL DATA TO STORE:`);
       this.logger.log(`  - ocr_text: "${analysisResult.ocr_text?.substring(0, 50)}..." (${analysisResult.ocr_text?.length || 0} chars)`);
