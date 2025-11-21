@@ -50,6 +50,12 @@ export interface ForensicDetails {
   agentLogs?: AgentLog[];
   agent_logs?: AgentLog[]; // Backend snake_case
   forensic_summary?: string; // Summary of forensic analysis
+  forensic_findings?: Array<{
+    category: string;
+    severity: 'pass' | 'medium' | 'high' | 'critical';
+    finding: string;
+    explanation: string;
+  }>; // NEW: Granular forensic findings with explanations
   techniques_detected?: string[]; // Red flags detected
   authenticity_indicators?: string[]; // Authenticity markers
   forensic_progress?: any[]; // Detailed forensic analysis steps

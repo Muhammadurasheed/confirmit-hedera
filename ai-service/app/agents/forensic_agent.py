@@ -530,26 +530,116 @@ class EnhancedForensicAgent:
 
     def _synthesize_forensic_verdict(self, pixel_results: Dict, ela_results: Dict,
                                      template_results: Dict, metadata_results: Dict) -> Dict[str, Any]:
-        """Synthesize final forensic verdict"""
+        """Synthesize final forensic verdict with granular findings"""
         try:
             # Calculate manipulation score (0-100)
             manipulation_score = 0.0
             
-            # Pixel-level (weight: 30%)
+            # Build granular findings list for UI display
+            forensic_findings = []
+            
+            # Pixel-level analysis findings (weight: 30%)
             if pixel_results.get('noise_inconsistency'):
                 manipulation_score += 30
+                forensic_findings.append({
+                    'category': 'Noise Analysis',
+                    'severity': 'high',
+                    'finding': f"Inconsistent noise pattern detected (variance: {pixel_results.get('noise_variance', 0):.2f})",
+                    'explanation': "Different regions of the image have varying noise levels, suggesting selective editing or copy-paste manipulation."
+                })
+            else:
+                forensic_findings.append({
+                    'category': 'Noise Analysis',
+                    'severity': 'pass',
+                    'finding': f"Noise pattern consistent across image (variance: {pixel_results.get('noise_variance', 0):.2f})",
+                    'explanation': "Uniform noise distribution indicates no selective editing."
+                })
+            
             if pixel_results.get('compression_anomalies'):
                 manipulation_score += 20
-            if pixel_results.get('clone_detected'):
-                manipulation_score += 40  # CRITICAL: cloning is major red flag
+                forensic_findings.append({
+                    'category': 'Compression Analysis',
+                    'severity': 'high',
+                    'finding': f"Multiple JPEG compression cycles detected (score: {pixel_results.get('compression_score', 0):.2f})",
+                    'explanation': "Compression artifacts don't match — image has been re-saved multiple times, indicating potential editing."
+                })
+            else:
+                forensic_findings.append({
+                    'category': 'Compression Analysis',
+                    'severity': 'pass',
+                    'finding': f"Compression artifacts uniform (score: {pixel_results.get('compression_score', 0):.2f})",
+                    'explanation': "Consistent JPEG compression throughout image."
+                })
             
-            # ELA (weight: 40%)
+            if pixel_results.get('clone_detected'):
+                manipulation_score += 40  # CRITICAL
+                clone_count = pixel_results.get('clone_count', 0)
+                forensic_findings.append({
+                    'category': 'Clone Detection',
+                    'severity': 'critical',
+                    'finding': f"{clone_count} copy-pasted region(s) detected",
+                    'explanation': "Identical pixel blocks found in different locations — strong evidence of copy-paste manipulation to duplicate text or images."
+                })
+            else:
+                forensic_findings.append({
+                    'category': 'Clone Detection',
+                    'severity': 'pass',
+                    'finding': "No cloned regions detected",
+                    'explanation': "No copy-pasted content found."
+                })
+            
+            if pixel_results.get('edge_anomalies'):
+                forensic_findings.append({
+                    'category': 'Edge Consistency',
+                    'severity': 'medium',
+                    'finding': f"Sharp edge transitions detected (score: {pixel_results.get('edge_score', 0):.2f})",
+                    'explanation': "Font rendering is inconsistent — text edges show abrupt changes suggesting text was added or altered."
+                })
+            else:
+                forensic_findings.append({
+                    'category': 'Edge Consistency',
+                    'severity': 'pass',
+                    'finding': f"Edge consistency normal (score: {pixel_results.get('edge_score', 0):.2f})",
+                    'explanation': "Text and image edges show natural rendering."
+                })
+            
+            # ELA findings (weight: 40%)
             if ela_results.get('manipulation_detected'):
                 manipulation_score += 40
+                stats = ela_results.get('statistics', {})
+                forensic_findings.append({
+                    'category': 'Error Level Analysis',
+                    'severity': 'critical',
+                    'finding': f"Manipulation detected via ELA (std: {stats.get('std_error', 0):.1f}, regions: {len(ela_results.get('suspicious_regions', []))})",
+                    'explanation': "Error Level Analysis reveals regions with inconsistent compression — areas were re-saved at different quality levels, indicating editing."
+                })
+            else:
+                forensic_findings.append({
+                    'category': 'Error Level Analysis',
+                    'severity': 'pass',
+                    'finding': "No ELA anomalies detected",
+                    'explanation': "Uniform error levels across entire image."
+                })
             
-            # Metadata (weight: 10%)
+            # Metadata findings (weight: 10%)
             metadata_risk = metadata_results.get('risk_score', 0)
             manipulation_score += min(10, metadata_risk * 0.1)
+            
+            metadata_flags = metadata_results.get('metadata_flags', [])
+            if metadata_flags:
+                forensic_findings.append({
+                    'category': 'Metadata Analysis',
+                    'severity': 'medium',
+                    'finding': f"Metadata flags: {', '.join(metadata_flags)}",
+                    'explanation': "Timestamp metadata doesn't align with the transaction details or shows evidence of editing software."
+                })
+            else:
+                forensic_findings.append({
+                    'category': 'Metadata Analysis',
+                    'severity': 'pass',
+                    'finding': "Metadata consistent",
+                    'explanation': "No suspicious metadata indicators."
+                })
             
             # Clamp to 0-100
             manipulation_score = min(100, manipulation_score)
@@ -564,14 +654,14 @@ class EnhancedForensicAgent:
             else:
                 verdict = "authentic"
             
-            # Compile techniques
+            # Compile techniques (legacy format for backward compat)
             techniques_detected = []
             if pixel_results.get('clone_detected'):
                 techniques_detected.append("Clone/Copy-Paste Detection")
             if ela_results.get('manipulation_detected'):
                 techniques_detected.extend(ela_results.get('techniques', []))
             
-            # Authenticity indicators
+            # Authenticity indicators (legacy format)
             authenticity_indicators = []
             if not pixel_results.get('noise_inconsistency'):
                 authenticity_indicators.append("✓ Consistent noise pattern")
@@ -581,6 +671,7 @@ class EnhancedForensicAgent:
             return {
                 'manipulation_score': int(manipulation_score),
                 'verdict': verdict,
+                'forensic_findings': forensic_findings,  # NEW: Granular findings for UI
                 'techniques_detected': techniques_detected,
                 'authenticity_indicators': authenticity_indicators,
                 'summary': self._generate_summary(verdict, manipulation_score),
@@ -593,10 +684,11 @@ class EnhancedForensicAgent:
             }
             
         except Exception as e:
-            logger.error(f"Verdict synthesis error: {str(e)}")
+            logger.error(f"Verdict synthesis error: {str(e)}", exc_info=True)
             return {
                 'manipulation_score': 50,
                 'verdict': 'unclear',
+                'forensic_findings': [],
                 'techniques_detected': [],
                 'authenticity_indicators': [],
                 'summary': 'Analysis incomplete due to error'
