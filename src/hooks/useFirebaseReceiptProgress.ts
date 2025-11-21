@@ -108,6 +108,28 @@ export const useFirebaseReceiptProgress = ({
                   forensicDetails.technical_details = {};
                 }
               }
+              
+              // Parse techniques_detected if it's a JSON string
+              if (typeof forensicDetails.techniques_detected === 'string') {
+                try {
+                  forensicDetails.techniques_detected = JSON.parse(forensicDetails.techniques_detected);
+                  console.log('✅ Parsed techniques_detected from string');
+                } catch (e) {
+                  console.error('❌ Failed to parse techniques_detected:', e);
+                  forensicDetails.techniques_detected = [];
+                }
+              }
+              
+              // Parse authenticity_indicators if it's a JSON string
+              if (typeof forensicDetails.authenticity_indicators === 'string') {
+                try {
+                  forensicDetails.authenticity_indicators = JSON.parse(forensicDetails.authenticity_indicators);
+                  console.log('✅ Parsed authenticity_indicators from string');
+                } catch (e) {
+                  console.error('❌ Failed to parse authenticity_indicators:', e);
+                  forensicDetails.authenticity_indicators = [];
+                }
+              }
             }
             
             // Merge root-level fields with analysis object
@@ -124,6 +146,9 @@ export const useFirebaseReceiptProgress = ({
               has_forensic_findings: Array.isArray(completeData.forensic_details?.forensic_findings),
               forensic_findings_count: completeData.forensic_details?.forensic_findings?.length || 0,
               has_technical_details: typeof completeData.forensic_details?.technical_details === 'object',
+              technical_details_keys: Object.keys(completeData.forensic_details?.technical_details || {}),
+              has_heatmap: Array.isArray(completeData.forensic_details?.heatmap),
+              heatmap_rows: completeData.forensic_details?.heatmap?.length || 0,
             });
             
             callbacksRef.current.onComplete?.(completeData);

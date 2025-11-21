@@ -104,8 +104,30 @@ export const ForensicDetailsModal = ({
   ocrText,
   merchant,
 }: ForensicDetailsModalProps) => {
-  const elaAnalysis = forensicDetails.technical_details?.ela_analysis;
-  const hasELAData = elaAnalysis && (elaAnalysis.heatmap || elaAnalysis.suspicious_regions);
+  // Try to get ELA data from nested structure first, then fallback to flattened
+  const elaAnalysis = forensicDetails.technical_details?.ela_analysis || {
+    heatmap: (forensicDetails as any).heatmap,
+    suspicious_regions: (forensicDetails as any).suspicious_regions,
+    image_dimensions: (forensicDetails as any).image_dimensions,
+    statistics: (forensicDetails as any).statistics,
+    pixel_diff: (forensicDetails as any).pixel_diff,
+    manipulation_detected: (forensicDetails as any).manipulation_detected,
+    techniques: (forensicDetails as any).techniques_detected || [],
+  };
+  
+  const hasELAData = elaAnalysis && (
+    (Array.isArray(elaAnalysis.heatmap) && elaAnalysis.heatmap.length > 0) || 
+    (Array.isArray(elaAnalysis.suspicious_regions) && elaAnalysis.suspicious_regions.length > 0)
+  );
+  
+  console.log('📊 ForensicDetailsModal - ELA Data Check:', {
+    hasELAData,
+    elaAnalysis,
+    heatmapType: typeof elaAnalysis?.heatmap,
+    heatmapIsArray: Array.isArray(elaAnalysis?.heatmap),
+    heatmapLength: Array.isArray(elaAnalysis?.heatmap) ? elaAnalysis.heatmap.length : 'N/A',
+    suspiciousRegionsLength: Array.isArray(elaAnalysis?.suspicious_regions) ? elaAnalysis.suspicious_regions.length : 'N/A',
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
