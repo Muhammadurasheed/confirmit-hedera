@@ -111,7 +111,20 @@ export class ReceiptsService {
 
         this.logger.log(`✅ AI service responded with status: ${aiResponse.status}`);
         analysisResult = aiResponse.data;
-        this.logger.log(`📊 AI analysis result keys: ${Object.keys(analysisResult).join(', ')}`);
+        
+        // Log detailed structure for debugging
+        this.logger.log(`📊 AI Response Structure Check:`);
+        this.logger.log(`  - Has forensic_details: ${!!analysisResult.forensic_details}`);
+        this.logger.log(`  - forensic_findings type: ${typeof analysisResult.forensic_details?.forensic_findings}`);
+        this.logger.log(`  - forensic_findings is array: ${Array.isArray(analysisResult.forensic_details?.forensic_findings)}`);
+        this.logger.log(`  - forensic_findings count: ${Array.isArray(analysisResult.forensic_details?.forensic_findings) ? analysisResult.forensic_details.forensic_findings.length : 'N/A'}`);
+        this.logger.log(`  - technical_details type: ${typeof analysisResult.forensic_details?.technical_details}`);
+        this.logger.log(`  - ocr_text length: ${analysisResult.ocr_text?.length || 0}`);
+        
+        // Log first forensic finding if exists
+        if (Array.isArray(analysisResult.forensic_details?.forensic_findings) && analysisResult.forensic_details.forensic_findings.length > 0) {
+          this.logger.log(`  - First finding sample: ${JSON.stringify(analysisResult.forensic_details.forensic_findings[0])}`);
+        }
       } catch (aiError) {
         this.logger.error(`AI service error: ${aiError.message}`, aiError.stack);
 
@@ -148,7 +161,18 @@ export class ReceiptsService {
         forensic_findings_count: analysisResult.forensic_details?.forensic_findings?.length || 0,
       })}`);
 
-      // Store complete results with ALL data from AI service
+      // Store complete results with ALL data from AI service - ensure proper structure
+      const forensicDetails = analysisResult.forensic_details || {};
+      
+      // Log structure for debugging
+      this.logger.log(`📊 Storing forensic data: ${JSON.stringify({
+        has_forensic_findings: !!forensicDetails.forensic_findings,
+        forensic_findings_type: typeof forensicDetails.forensic_findings,
+        forensic_findings_count: Array.isArray(forensicDetails.forensic_findings) ? forensicDetails.forensic_findings.length : 'N/A',
+        has_technical_details: !!forensicDetails.technical_details,
+        technical_details_type: typeof forensicDetails.technical_details,
+      })}`);
+      
       await receiptRef.update({
         ocr_text: analysisResult.ocr_text || '',  // CRITICAL: Store OCR text at root level
         analysis: {
@@ -157,26 +181,15 @@ export class ReceiptsService {
           issues: analysisResult.issues || [],
           recommendation: analysisResult.recommendation,
           forensic_details: {
-            ocr_confidence: analysisResult.forensic_details?.ocr_confidence || 0,
-            manipulation_score: analysisResult.forensic_details?.manipulation_score || 0,
-            metadata_flags: analysisResult.forensic_details?.metadata_flags || [],
-            forensic_summary: analysisResult.forensic_details?.forensic_summary,
-            forensic_findings: analysisResult.forensic_details?.forensic_findings || [],  // NEW: Granular findings
-            techniques_detected: analysisResult.forensic_details?.techniques_detected || [],
-            authenticity_indicators: analysisResult.forensic_details?.authenticity_indicators || [],
-            forensic_progress: analysisResult.forensic_details?.forensic_progress || [],
-            technical_details: analysisResult.forensic_details?.technical_details || {},
-            heatmap: analysisResult.forensic_details?.heatmap || [],  // ELA heatmap data
-            pixel_diff: analysisResult.forensic_details?.pixel_diff || null,  // Pixel diff map
-            ela_analysis: {
-              manipulation_detected: analysisResult.forensic_details?.manipulation_detected || false,
-              heatmap: analysisResult.forensic_details?.heatmap || [],
-              suspicious_regions: analysisResult.forensic_details?.suspicious_regions || [],
-              image_dimensions: analysisResult.forensic_details?.image_dimensions,
-              statistics: analysisResult.forensic_details?.statistics,
-              techniques: analysisResult.forensic_details?.techniques_detected || [],
-              pixel_diff: analysisResult.forensic_details?.pixel_diff || null,
-            },
+            ocr_confidence: forensicDetails.ocr_confidence || 0,
+            manipulation_score: forensicDetails.manipulation_score || 0,
+            metadata_flags: forensicDetails.metadata_flags || [],
+            forensic_summary: forensicDetails.forensic_summary,
+            forensic_findings: forensicDetails.forensic_findings || [],  // Ensure it's an array
+            techniques_detected: forensicDetails.techniques_detected || [],
+            authenticity_indicators: forensicDetails.authenticity_indicators || [],
+            forensic_progress: forensicDetails.forensic_progress || [],
+            technical_details: forensicDetails.technical_details || {},  // Ensure it's an object
           },
           merchant: analysisResult.merchant || null,
           agent_logs: analysisResult.agent_logs || [],
