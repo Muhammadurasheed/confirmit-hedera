@@ -113,6 +113,14 @@ const QuickScan = () => {
     },
     onComplete: async (analysisData) => {
       console.log('✅ Firebase analysis complete:', analysisData);
+      console.log('📊 Analysis structure:', {
+        has_ocr_text: !!analysisData.ocr_text,
+        has_trust_score: !!analysisData.trust_score,
+        has_forensic_details: !!analysisData.forensic_details,
+        has_forensic_findings: !!(analysisData.forensic_details?.forensic_findings),
+        forensic_findings_count: analysisData.forensic_details?.forensic_findings?.length || 0,
+        has_merchant: !!analysisData.merchant,
+      });
       
       console.log('📊 Final analysis data:', JSON.stringify(analysisData, null, 2));
       setResults(analysisData);

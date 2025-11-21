@@ -121,7 +121,7 @@ export const ForensicDetailsModal = ({
         </DialogHeader>
 
         <Tabs defaultValue="forensics" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className={`grid w-full ${hasELAData ? 'grid-cols-5' : 'grid-cols-4'}`}>
             <TabsTrigger value="forensics">
               <Shield className="h-4 w-4 mr-2" />
               Forensics
@@ -134,16 +134,16 @@ export const ForensicDetailsModal = ({
               <Store className="h-4 w-4 mr-2" />
               Merchant
             </TabsTrigger>
-            {hasELAData && (
-              <TabsTrigger value="ela">
-                <AlertTriangle className="h-4 w-4 mr-2" />
-                ELA Heatmap
-              </TabsTrigger>
-            )}
             <TabsTrigger value="agents">
               <Bot className="h-4 w-4 mr-2" />
               AI Agents
             </TabsTrigger>
+            {hasELAData && (
+              <TabsTrigger value="ela">
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                Heatmap
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* ELA Heatmap Tab */}

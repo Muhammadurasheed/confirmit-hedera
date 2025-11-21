@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, Eye, EyeOff } from 'lucide-react';
+import { AlertTriangle, ImageOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface SuspiciousRegion {
@@ -56,6 +56,29 @@ export const ELAHeatmapViewer = ({
   statistics,
   pixelDiff
 }: ELAHeatmapViewerProps) => {
+  // Validate heatmap data - must be 2D array of numbers
+  const isValidHeatmap = Array.isArray(heatmap) && heatmap.length > 0 && 
+    Array.isArray(heatmap[0]) && typeof heatmap[0][0] === 'number';
+  
+  const isValidPixelDiff = pixelDiff && Array.isArray(pixelDiff.diff_map) && 
+    pixelDiff.diff_map.length > 0 && Array.isArray(pixelDiff.diff_map[0]);
+
+  // If no valid visualization data, show fallback
+  if (!isValidHeatmap && !isValidPixelDiff) {
+    return (
+      <Card>
+        <CardContent className="p-12 text-center">
+          <ImageOff className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+          <p className="text-muted-foreground mb-2 font-medium">Visual Heatmap Unavailable</p>
+          <p className="text-xs text-muted-foreground max-w-md mx-auto">
+            Forensic analysis completed successfully, but visual heatmap rendering is currently disabled. 
+            All fraud detection results are available in the <span className="font-semibold">Forensics tab</span>.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const [viewMode, setViewMode] = useState<'heatmap' | 'pixel-diff'>('heatmap');
