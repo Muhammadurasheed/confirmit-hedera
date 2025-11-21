@@ -16,14 +16,12 @@ import {
 } from '@hashgraph/sdk';
 import * as crypto from 'crypto';
 import * as admin from 'firebase-admin';
-import { AgentSDK, AgentServiceType } from './agent-sdk';
 
 @Injectable()
 export class HederaService {
   private readonly logger = new Logger(HederaService.name);
   private readonly client: Client;
   private readonly db = admin.firestore();
-  private readonly agentSDK: AgentSDK;
 
   constructor(private readonly configService: ConfigService) {
     // Initialize Hedera client
@@ -44,18 +42,6 @@ export class HederaService {
 
     this.client.setOperator(accountId, privateKey);
     this.logger.log('Hedera client initialized');
-
-    // Initialize Agent SDK for A2A marketplace
-    const contractAddress = this.configService.get('hedera.agentMarketplaceContract');
-    if (contractAddress) {
-      this.agentSDK = new AgentSDK(
-        this.client,
-        contractAddress,
-        this.configService.get('hedera.accountId'),
-        this.configService.get('hedera.privateKey'),
-      );
-      this.logger.log('Agent SDK initialized for A2A marketplace');
-    }
   }
 
   async anchorToHCS(entityId: string, data: any): Promise<any> {
@@ -314,192 +300,6 @@ export class HederaService {
         verified: false,
         error: error.message,
       };
-    }
-  }
-
-  /**
-   * ===========================================
-   * A2A AGENT MARKETPLACE METHODS
-   * ===========================================
-   */
-
-  /**
-   * Register an AI agent in the A2A marketplace
-   */
-  async registerAgentInMarketplace(
-    agentId: string,
-    serviceType: AgentServiceType,
-    pricePerRequest: number,
-  ): Promise<any> {
-    this.logger.log(`Registering agent in marketplace: ${agentId}`);
-    
-    if (!this.agentSDK) {
-      throw new Error('Agent SDK not initialized');
-    }
-
-    try {
-      const result = await this.agentSDK.registerAgent(
-        agentId,
-        serviceType,
-        pricePerRequest,
-      );
-
-      // Store registration in Firestore
-      await this.db.collection('agent_marketplace').add({
-        agent_id: agentId,
-        service_type: serviceType,
-        price_per_request: pricePerRequest,
-        registration_tx: result.transactionId,
-        registered_at: admin.firestore.FieldValue.serverTimestamp(),
-      });
-
-      return result;
-    } catch (error) {
-      this.logger.error(`Agent registration failed: ${error.message}`);
-      throw error;
-    }
-  }
-
-  /**
-   * Request a service from another agent (A2A transaction)
-   */
-  async requestAgentService(
-    serviceType: AgentServiceType,
-    dataHash: string,
-    paymentAmount: number,
-  ): Promise<any> {
-    this.logger.log(`Requesting agent service: ${serviceType}`);
-
-    if (!this.agentSDK) {
-      throw new Error('Agent SDK not initialized');
-    }
-
-    try {
-      // Find best agent for this service
-      const bestAgentAddress = await this.agentSDK.getBestAgent(serviceType);
-
-      // Request service from agent
-      const result = await this.agentSDK.requestService(
-        bestAgentAddress,
-        serviceType,
-        dataHash,
-        paymentAmount,
-      );
-
-      // Store request in Firestore
-      await this.db.collection('a2a_transactions').add({
-        request_id: result.requestId,
-        service_type: serviceType,
-        provider_address: bestAgentAddress,
-        amount: paymentAmount,
-        data_hash: dataHash,
-        transaction_id: result.transactionId,
-        status: 'pending',
-        created_at: admin.firestore.FieldValue.serverTimestamp(),
-      });
-
-      return result;
-    } catch (error) {
-      this.logger.error(`Agent service request failed: ${error.message}`);
-      throw error;
-    }
-  }
-
-  /**
-   * Complete an agent service request
-   */
-  async completeAgentService(
-    requestId: number,
-    resultHash: string,
-  ): Promise<any> {
-    this.logger.log(`Completing agent service: ${requestId}`);
-
-    if (!this.agentSDK) {
-      throw new Error('Agent SDK not initialized');
-    }
-
-    try {
-      const result = await this.agentSDK.completeService(requestId, resultHash);
-
-      // Update status in Firestore
-      const txRef = await this.db
-        .collection('a2a_transactions')
-        .where('request_id', '==', requestId)
-        .limit(1)
-        .get();
-
-      if (!txRef.empty) {
-        await txRef.docs[0].ref.update({
-          status: 'completed',
-          result_hash: resultHash,
-          completion_tx: result.transactionId,
-          completed_at: admin.firestore.FieldValue.serverTimestamp(),
-        });
-      }
-
-      return result;
-    } catch (error) {
-      this.logger.error(`Agent service completion failed: ${error.message}`);
-      throw error;
-    }
-  }
-
-  /**
-   * Get agent marketplace statistics
-   */
-  async getAgentMarketplaceStats(): Promise<any> {
-    try {
-      const [agentsSnapshot, transactionsSnapshot] = await Promise.all([
-        this.db.collection('agent_marketplace').get(),
-        this.db.collection('a2a_transactions').get(),
-      ]);
-
-      const completedTransactions = transactionsSnapshot.docs.filter(
-        (doc) => doc.data().status === 'completed',
-      ).length;
-
-      const totalVolume = transactionsSnapshot.docs.reduce(
-        (sum, doc) => sum + (doc.data().amount || 0),
-        0,
-      );
-
-      return {
-        total_agents: agentsSnapshot.size,
-        active_agents: agentsSnapshot.docs.filter(
-          (doc) => doc.data().is_active !== false,
-        ).length,
-        total_transactions: transactionsSnapshot.size,
-        completed_transactions: completedTransactions,
-        total_volume: totalVolume,
-        success_rate:
-          transactionsSnapshot.size > 0
-            ? (completedTransactions / transactionsSnapshot.size) * 100
-            : 0,
-      };
-    } catch (error) {
-      this.logger.error(`Failed to get marketplace stats: ${error.message}`);
-      throw error;
-    }
-  }
-
-  /**
-   * Get recent A2A transactions
-   */
-  async getRecentA2ATransactions(limit: number = 10): Promise<any[]> {
-    try {
-      const snapshot = await this.db
-        .collection('a2a_transactions')
-        .orderBy('created_at', 'desc')
-        .limit(limit)
-        .get();
-
-      return snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-    } catch (error) {
-      this.logger.error(`Failed to get A2A transactions: ${error.message}`);
-      return [];
     }
   }
 }

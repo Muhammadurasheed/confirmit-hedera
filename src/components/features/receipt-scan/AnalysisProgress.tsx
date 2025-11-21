@@ -1,9 +1,8 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, Loader2, AlertCircle, Zap, ExternalLink } from 'lucide-react';
+import { Check, Loader2, AlertCircle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
 import { EducationalTips } from './EducationalTips';
 
 interface AnalysisProgressProps {
@@ -32,14 +31,10 @@ const agentConfig = {
 
 const statusConfig = {
   upload_complete: { label: 'Upload Complete', icon: Check, color: 'text-green-500' },
-  agent_discovery: { label: 'Discovering Agents', icon: Loader2, color: 'text-blue-500' },
-  agents_selected: { label: 'Agents Selected', icon: Check, color: 'text-green-500' },
-  agent_coordination: { label: 'A2A Coordination', icon: Zap, color: 'text-yellow-500' },
-  agent_payment_sent: { label: 'Agent Paid', icon: Check, color: 'text-green-500' },
-  ocr_started: { label: 'Vision Agent Active', icon: Loader2, color: 'text-green-500' },
-  forensics_running: { label: 'Forensic Agent Active', icon: Loader2, color: 'text-purple-500' },
-  analysis_complete: { label: 'All Agents Complete', icon: Check, color: 'text-green-500' },
-  hedera_anchoring: { label: 'HCS Anchoring', icon: Loader2, color: 'text-orange-500' },
+  ocr_started: { label: 'Extracting Text', icon: Loader2, color: 'text-blue-500' },
+  forensics_running: { label: 'Forensic Analysis', icon: Loader2, color: 'text-purple-500' },
+  analysis_complete: { label: 'Analysis Complete', icon: Check, color: 'text-green-500' },
+  hedera_anchoring: { label: 'Blockchain Anchoring', icon: Loader2, color: 'text-orange-500' },
   hedera_anchored: { label: 'Verified on Blockchain', icon: Check, color: 'text-green-500' },
   complete: { label: 'Verification Complete', icon: Check, color: 'text-green-500' },
   failed: { label: 'Verification Failed', icon: AlertCircle, color: 'text-red-500' },
@@ -47,35 +42,19 @@ const statusConfig = {
 
 export const AnalysisProgress = ({ progress, status, message, currentAgent, agentDetails, receiptId }: AnalysisProgressProps) => {
   const [agentStatuses, setAgentStatuses] = React.useState<Record<string, AgentStatus>>({
-    vision: { name: 'Vision Agent 👁️', status: 'pending' },
-    forensic: { name: 'Forensic Agent 🔬', status: 'pending' },
-    metadata: { name: 'Metadata Agent 📋', status: 'pending' },
-    reputation: { name: 'Reputation Agent ⭐', status: 'pending' },
-    reasoning: { name: 'Reasoning Agent 🧠', status: 'pending' },
+    vision: { name: 'Vision Agent', status: 'pending' },
+    forensic: { name: 'Forensic Agent', status: 'pending' },
+    metadata: { name: 'Metadata Agent', status: 'pending' },
+    reputation: { name: 'Reputation Agent', status: 'pending' },
   });
-
-  const [a2aTransactions, setA2aTransactions] = React.useState<Array<{agent: string, amount: string, txId: string}>>([]);
-
-  // Track A2A payments in real-time
-  React.useEffect(() => {
-    if (status === 'agent_payment_sent' && message) {
-      const match = message.match(/Paid (.*?) ℏ([\d.]+)/);
-      if (match) {
-        setA2aTransactions(prev => [...prev, {
-          agent: match[1],
-          amount: match[2],
-          txId: `TX-${Date.now()}` // In real impl, extract from event
-        }]);
-      }
-    }
-  }, [status, message]);
 
   // Update agent statuses based on current agent
   React.useEffect(() => {
     if (currentAgent) {
       setAgentStatuses(prev => {
         const updated = { ...prev };
-        const agentOrder = ['vision', 'forensic', 'metadata', 'reputation', 'reasoning'];
+        // Mark all agents before current as completed
+        const agentOrder = ['vision', 'forensic', 'metadata', 'reputation'];
         const currentIndex = agentOrder.indexOf(currentAgent);
         
         agentOrder.forEach((agent, index) => {
@@ -185,41 +164,6 @@ export const AnalysisProgress = ({ progress, status, message, currentAgent, agen
         </div>
 
         <EducationalTips />
-
-        {/* A2A Transaction Feed */}
-        {a2aTransactions.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="pt-4 border-t space-y-2"
-          >
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <Zap className="h-4 w-4 text-yellow-500" />
-              <span>A2A Micropayments (Hedera)</span>
-            </div>
-            <div className="space-y-1.5">
-              {a2aTransactions.map((tx, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="flex items-center justify-between p-2 rounded bg-green-500/10 border border-green-500/20 text-xs"
-                >
-                  <div className="flex items-center gap-2">
-                    <Check className="h-3 w-3 text-green-500" />
-                    <span className="font-medium">{tx.agent}</span>
-                  </div>
-                  <Badge variant="secondary" className="font-mono">
-                    ℏ{tx.amount}
-                  </Badge>
-                </motion.div>
-              ))}
-            </div>
-            <p className="text-xs text-muted-foreground text-center pt-1">
-              💰 Autonomous agents transacting on Hedera • ~$0.0001/tx
-            </p>
-          </motion.div>
-        )}
 
         <AnimatePresence>
           {isLoading && (

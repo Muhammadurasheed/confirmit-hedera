@@ -363,12 +363,11 @@ const QuickScan = () => {
                 <ResultsDisplay
                   receiptId={currentReceipt.receiptId}
                   receiptImageUrl={currentReceipt.storagePath}
-                  ocrText={results.ocr_text || ''}
+                  ocrText={results.ocr_text || ''}  // Pass OCR text
                   trustScore={(results.trust_score || results.trustScore || 0) as number}
                   verdict={(results.verdict || 'unclear') as any}
                   issues={results.issues || []}
                   recommendation={results.recommendation || 'Analysis completed. Review the details below.'}
-                  agentMarketplace={results.agent_marketplace}
                   forensicDetails={{
                     ocr_confidence: (results.forensic_details?.ocr_confidence || 0) as number,
                     manipulation_score: (results.forensic_details?.manipulation_score || 0) as number,
