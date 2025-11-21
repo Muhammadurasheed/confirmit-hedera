@@ -112,18 +112,24 @@ export class ReceiptsService {
         this.logger.log(`✅ AI service responded with status: ${aiResponse.status}`);
         analysisResult = aiResponse.data;
         
-        // Log detailed structure for debugging
-        this.logger.log(`📊 AI Response Structure Check:`);
+        // CRITICAL DEBUGGING: Log EXACT response from AI service
+        this.logger.log(`🔍 BACKEND RECEIVED FROM AI SERVICE:`);
+        this.logger.log(`  - Full response keys: ${JSON.stringify(Object.keys(analysisResult))}`);
+        this.logger.log(`  - ocr_text: "${analysisResult.ocr_text?.substring(0, 100)}..." (${analysisResult.ocr_text?.length || 0} chars)`);
+        this.logger.log(`  - trust_score: ${analysisResult.trust_score}`);
+        this.logger.log(`  - verdict: ${analysisResult.verdict}`);
         this.logger.log(`  - Has forensic_details: ${!!analysisResult.forensic_details}`);
-        this.logger.log(`  - forensic_findings type: ${typeof analysisResult.forensic_details?.forensic_findings}`);
-        this.logger.log(`  - forensic_findings is array: ${Array.isArray(analysisResult.forensic_details?.forensic_findings)}`);
-        this.logger.log(`  - forensic_findings count: ${Array.isArray(analysisResult.forensic_details?.forensic_findings) ? analysisResult.forensic_details.forensic_findings.length : 'N/A'}`);
-        this.logger.log(`  - technical_details type: ${typeof analysisResult.forensic_details?.technical_details}`);
-        this.logger.log(`  - ocr_text length: ${analysisResult.ocr_text?.length || 0}`);
         
-        // Log first forensic finding if exists
-        if (Array.isArray(analysisResult.forensic_details?.forensic_findings) && analysisResult.forensic_details.forensic_findings.length > 0) {
-          this.logger.log(`  - First finding sample: ${JSON.stringify(analysisResult.forensic_details.forensic_findings[0])}`);
+        if (analysisResult.forensic_details) {
+          this.logger.log(`  - forensic_details keys: ${JSON.stringify(Object.keys(analysisResult.forensic_details))}`);
+          this.logger.log(`  - forensic_findings: ${Array.isArray(analysisResult.forensic_details.forensic_findings) ? analysisResult.forensic_details.forensic_findings.length + ' items' : typeof analysisResult.forensic_details.forensic_findings}`);
+          this.logger.log(`  - technical_details: ${typeof analysisResult.forensic_details.technical_details}`);
+          
+          if (analysisResult.forensic_details.technical_details) {
+            this.logger.log(`  - technical_details keys: ${JSON.stringify(Object.keys(analysisResult.forensic_details.technical_details))}`);
+          }
+          
+          this.logger.log(`  - heatmap: ${Array.isArray(analysisResult.forensic_details.heatmap) ? analysisResult.forensic_details.heatmap.length + ' rows' : typeof analysisResult.forensic_details.heatmap}`);
         }
       } catch (aiError) {
         this.logger.error(`AI service error: ${aiError.message}`, aiError.stack);

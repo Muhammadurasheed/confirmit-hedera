@@ -75,7 +75,16 @@ async def analyze_receipt(request: AnalyzeReceiptRequest) -> Dict[str, Any]:
         result = await orchestrator.analyze_receipt(image_path, request.receipt_id)
 
         logger.info(f"✅ Analysis completed for receipt: {request.receipt_id}")
-        logger.info(f"📊 Trust Score: {result.get('trustScore')}, Verdict: {result.get('verdict')}")
+        logger.info(f"📊 Trust Score: {result.get('trust_score')}, Verdict: {result.get('verdict')}")
+        
+        # CRITICAL DEBUGGING: Log the exact structure being returned
+        logger.info(f"🔍 AI SERVICE RETURNING:")
+        logger.info(f"  - ocr_text length: {len(result.get('ocr_text', ''))}")
+        logger.info(f"  - forensic_findings: {len(result.get('forensic_details', {}).get('forensic_findings', []))} items")
+        logger.info(f"  - technical_details keys: {list(result.get('forensic_details', {}).get('technical_details', {}).keys())}")
+        logger.info(f"  - heatmap shape: {len(result.get('forensic_details', {}).get('heatmap', []))} rows")
+        logger.info(f"  - Full forensic_details keys: {list(result.get('forensic_details', {}).keys())}")
+        
         return result
 
     except HTTPException:
