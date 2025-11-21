@@ -87,12 +87,14 @@ export class ReceiptsService {
 
       // Call AI service with proper error handling
       const aiServiceUrl = this.configService.get('aiService.url');
-      this.logger.log(`Calling AI service: ${aiServiceUrl}/api/analyze-receipt`);
+      this.logger.log(`🤖 Calling AI service at: ${aiServiceUrl}/api/analyze-receipt`);
+      this.logger.log(`📸 Image URL: ${imageUrl.substring(0, 80)}...`);
 
       let aiResponse;
       let analysisResult;
 
       try {
+        this.logger.log('⏳ Sending request to AI service...');
         aiResponse = await axios.post(
           `${aiServiceUrl}/api/analyze-receipt`,
           {
@@ -107,7 +109,9 @@ export class ReceiptsService {
           },
         );
 
+        this.logger.log(`✅ AI service responded with status: ${aiResponse.status}`);
         analysisResult = aiResponse.data;
+        this.logger.log(`📊 AI analysis result keys: ${Object.keys(analysisResult).join(', ')}`);
       } catch (aiError) {
         this.logger.error(`AI service error: ${aiError.message}`, aiError.stack);
 
@@ -134,6 +138,15 @@ export class ReceiptsService {
       }
 
       this.receiptsGateway.emitProgress(receiptId, 80, 'analysis_complete', 'Analysis complete!');
+
+      this.logger.log(`💾 Storing analysis results for ${receiptId}...`);
+      this.logger.log(`📊 Analysis data structure: ${JSON.stringify({
+        has_ocr_text: !!analysisResult.ocr_text,
+        ocr_text_length: analysisResult.ocr_text?.length || 0,
+        trust_score: analysisResult.trust_score,
+        verdict: analysisResult.verdict,
+        forensic_findings_count: analysisResult.forensic_details?.forensic_findings?.length || 0,
+      })}`);
 
       // Store complete results with ALL data from AI service
       await receiptRef.update({

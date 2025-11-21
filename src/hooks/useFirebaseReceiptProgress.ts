@@ -80,10 +80,16 @@ export const useFirebaseReceiptProgress = ({
             callbacksRef.current.onProgress?.(progress);
           }
 
-          // Check for completion
+          // Check for completion - CRITICAL: Pass FULL document, not just analysis
           if (data.status === 'completed' && data.analysis) {
-            console.log('✅ Analysis completed:', data.analysis);
-            callbacksRef.current.onComplete?.(data.analysis);
+            console.log('✅ Analysis completed:', data);
+            // Merge root-level fields with analysis object
+            const completeData = {
+              ...data.analysis,
+              ocr_text: data.ocr_text || data.analysis.ocr_text || '',  // OCR text is at root level
+              agent_logs: data.analysis.agent_logs || data.agent_logs || [],
+            };
+            callbacksRef.current.onComplete?.(completeData);
           }
 
           // Check for errors
