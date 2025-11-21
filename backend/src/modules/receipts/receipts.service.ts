@@ -159,25 +159,62 @@ export class ReceiptsService {
       this.receiptsGateway.emitProgress(receiptId, 80, 'analysis_complete', 'Analysis complete!');
 
       this.logger.log(`💾 Storing analysis results for ${receiptId}...`);
-      this.logger.log(`📊 Analysis data structure: ${JSON.stringify({
-        has_ocr_text: !!analysisResult.ocr_text,
-        ocr_text_length: analysisResult.ocr_text?.length || 0,
-        trust_score: analysisResult.trust_score,
-        verdict: analysisResult.verdict,
-        forensic_findings_count: analysisResult.forensic_details?.forensic_findings?.length || 0,
-      })}`);
-
-      // Store complete results with ALL data from AI service - ensure proper structure
+      
+      // CRITICAL FIX: Parse stringified JSON fields from AI service
       const forensicDetails = analysisResult.forensic_details || {};
       
-      // Log structure for debugging
-      this.logger.log(`📊 Storing forensic data: ${JSON.stringify({
-        has_forensic_findings: !!forensicDetails.forensic_findings,
-        forensic_findings_type: typeof forensicDetails.forensic_findings,
-        forensic_findings_count: Array.isArray(forensicDetails.forensic_findings) ? forensicDetails.forensic_findings.length : 'N/A',
-        has_technical_details: !!forensicDetails.technical_details,
-        technical_details_type: typeof forensicDetails.technical_details,
-      })}`);
+      // Parse forensic_findings if it's a JSON string
+      let forensicFindings = forensicDetails.forensic_findings || [];
+      if (typeof forensicFindings === 'string') {
+        try {
+          forensicFindings = JSON.parse(forensicFindings);
+          this.logger.log('✅ Parsed forensic_findings from JSON string');
+        } catch (e) {
+          this.logger.error(`❌ Failed to parse forensic_findings: ${e.message}`);
+          forensicFindings = [];
+        }
+      }
+      
+      // Parse technical_details if it's a JSON string
+      let technicalDetails = forensicDetails.technical_details || {};
+      if (typeof technicalDetails === 'string') {
+        try {
+          technicalDetails = JSON.parse(technicalDetails);
+          this.logger.log('✅ Parsed technical_details from JSON string');
+        } catch (e) {
+          this.logger.error(`❌ Failed to parse technical_details: ${e.message}`);
+          technicalDetails = {};
+        }
+      }
+      
+      // Parse techniques_detected if it's a JSON string
+      let techniquesDetected = forensicDetails.techniques_detected || [];
+      if (typeof techniquesDetected === 'string') {
+        try {
+          techniquesDetected = JSON.parse(techniquesDetected);
+          this.logger.log('✅ Parsed techniques_detected from JSON string');
+        } catch (e) {
+          this.logger.error(`❌ Failed to parse techniques_detected: ${e.message}`);
+          techniquesDetected = [];
+        }
+      }
+      
+      // Parse authenticity_indicators if it's a JSON string
+      let authenticityIndicators = forensicDetails.authenticity_indicators || [];
+      if (typeof authenticityIndicators === 'string') {
+        try {
+          authenticityIndicators = JSON.parse(authenticityIndicators);
+          this.logger.log('✅ Parsed authenticity_indicators from JSON string');
+        } catch (e) {
+          this.logger.error(`❌ Failed to parse authenticity_indicators: ${e.message}`);
+          authenticityIndicators = [];
+        }
+      }
+      
+      this.logger.log(`📊 FINAL DATA TO STORE:`);
+      this.logger.log(`  - ocr_text: "${analysisResult.ocr_text?.substring(0, 50)}..." (${analysisResult.ocr_text?.length || 0} chars)`);
+      this.logger.log(`  - forensic_findings: ${Array.isArray(forensicFindings) ? forensicFindings.length : 'NOT AN ARRAY'} items`);
+      this.logger.log(`  - technical_details: ${typeof technicalDetails} with keys: ${Object.keys(technicalDetails).join(', ')}`);
       
       await receiptRef.update({
         ocr_text: analysisResult.ocr_text || '',  // CRITICAL: Store OCR text at root level
@@ -191,11 +228,19 @@ export class ReceiptsService {
             manipulation_score: forensicDetails.manipulation_score || 0,
             metadata_flags: forensicDetails.metadata_flags || [],
             forensic_summary: forensicDetails.forensic_summary,
-            forensic_findings: forensicDetails.forensic_findings || [],  // Ensure it's an array
-            techniques_detected: forensicDetails.techniques_detected || [],
-            authenticity_indicators: forensicDetails.authenticity_indicators || [],
+            forensic_verdict: forensicDetails.forensic_verdict,
+            forensic_findings: forensicFindings,  // Now properly parsed
+            techniques_detected: techniquesDetected,  // Now properly parsed
+            authenticity_indicators: authenticityIndicators,  // Now properly parsed
             forensic_progress: forensicDetails.forensic_progress || [],
-            technical_details: forensicDetails.technical_details || {},  // Ensure it's an object
+            technical_details: technicalDetails,  // Now properly parsed
+            // Flatten ELA data for easier access
+            manipulation_detected: technicalDetails?.ela_analysis?.manipulation_detected || false,
+            heatmap: technicalDetails?.ela_analysis?.heatmap || [],
+            suspicious_regions: technicalDetails?.ela_analysis?.suspicious_regions || [],
+            image_dimensions: technicalDetails?.ela_analysis?.image_dimensions,
+            statistics: technicalDetails?.ela_analysis?.statistics,
+            pixel_diff: technicalDetails?.ela_analysis?.pixel_diff,
           },
           merchant: analysisResult.merchant || null,
           agent_logs: analysisResult.agent_logs || [],
@@ -203,6 +248,8 @@ export class ReceiptsService {
         processing_time: Date.now() - startTime,
         status: 'completed',
       });
+      
+      this.logger.log(`✅ Successfully stored complete analysis to Firestore`);
 
       // Anchor to Hedera if requested
       if (anchorOnHedera) {
