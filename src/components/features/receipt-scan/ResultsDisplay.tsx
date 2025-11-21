@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { AlertTriangle, CheckCircle, XCircle, HelpCircle, Flag, Link as LinkIcon, Eye, FileText, Microscope, Store } from 'lucide-react';
+import { AlertTriangle, CheckCircle, XCircle, HelpCircle, Flag, Link as LinkIcon, Eye, FileText, Microscope, Store, Bot } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,12 +12,13 @@ import { ForensicDetailsModal } from './ForensicDetailsModal';
 import { HederaAnchorModal } from './HederaAnchorModal';
 import { OCRTextDisplay } from './OCRTextDisplay';
 import { ELAHeatmapVisual } from './ELAHeatmapVisual';
+import { AgentCollaborationModal } from './AgentCollaborationModal';
 import HederaBadge from '@/components/shared/HederaBadge';
 
 interface ResultsDisplayProps {
   receiptId: string;
   receiptImageUrl?: string;
-  ocrText?: string; // Add OCR text prop
+  ocrText?: string;
   trustScore: number;
   verdict: 'authentic' | 'suspicious' | 'fraudulent' | 'unclear';
   issues: Array<{
@@ -58,6 +59,14 @@ interface ResultsDisplayProps {
     consensus_timestamp: string;
     explorer_url: string;
   } | null;
+  agentMarketplace?: {
+    enabled: boolean;
+    total_cost_tinybar: number;
+    total_cost_hbar: number;
+    total_cost_usd: number;
+    transactions: any[];
+    agent_count: number;
+  };
 }
 
 const verdictConfig = {
@@ -90,7 +99,7 @@ const verdictConfig = {
 export const ResultsDisplay = ({
   receiptId,
   receiptImageUrl,
-  ocrText, // Destructure OCR text
+  ocrText,
   trustScore,
   verdict,
   issues = [],
@@ -98,11 +107,13 @@ export const ResultsDisplay = ({
   forensicDetails,
   merchant,
   hederaAnchor,
+  agentMarketplace,
 }: ResultsDisplayProps) => {
   const [showReportModal, setShowReportModal] = useState(false);
   const [showForensicModal, setShowForensicModal] = useState(false);
   const [showHederaModal, setShowHederaModal] = useState(false);
   const [showReportFraudModal, setShowReportFraudModal] = useState(false);
+  const [showAgentModal, setShowAgentModal] = useState(false);
 
   // Defensive checks and data validation
   const safeIssues = Array.isArray(issues) ? issues : [];
@@ -180,6 +191,26 @@ export const ResultsDisplay = ({
         <h3 className="font-semibold mb-2">Recommendation</h3>
         <p className="text-sm">{recommendation}</p>
       </Card>
+
+      {/* A2A Agent Collaboration */}
+      {agentMarketplace?.enabled && (
+        <Card className="p-6 bg-gradient-to-r from-purple-500/5 via-blue-500/5 to-cyan-500/5 border-purple-500/20">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold flex items-center gap-2 mb-2">
+                <Bot className="h-5 w-5 text-purple-500" />
+                Powered by A2A Agent Marketplace
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {agentMarketplace.agent_count} autonomous AI agents collaborated via Hedera smart contracts
+              </p>
+            </div>
+            <Button onClick={() => setShowAgentModal(true)} variant="outline" size="sm">
+              View Details
+            </Button>
+          </div>
+        </Card>
+      )}
 
       {/* Issues */}
       {safeIssues.length > 0 && (
@@ -371,6 +402,15 @@ export const ResultsDisplay = ({
           </div>
         </CardContent>
       </Card>
+
+      {/* Modals */}
+      {agentMarketplace && (
+        <AgentCollaborationModal 
+          open={showAgentModal}
+          onClose={() => setShowAgentModal(false)}
+          agentData={agentMarketplace}
+        />
+      )}
 
       {/* Hedera Badge */}
       {hederaAnchor && (
