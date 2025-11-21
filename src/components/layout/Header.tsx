@@ -25,6 +25,7 @@ const Header = () => {
     { name: "Account Check", path: "/account-check" },
     { name: "Report Fraud", path: "/report-fraud" },
     { name: "Business", path: "/business" },
+    { name: "Agent Marketplace", path: "/agent-marketplace" },
     { name: "API", path: "/api" },
   ];
 

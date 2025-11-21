@@ -22,6 +22,7 @@ import NotFound from "./pages/NotFound";
 import PaymentSelection from "./pages/payment/PaymentSelection";
 import PaymentCallback from "./pages/payment/PaymentCallback";
 import PaymentPending from "./pages/payment/PaymentPending";
+import AgentMarketplace from "./pages/AgentMarketplace";
 
 const queryClient = new QueryClient();
 
@@ -51,6 +52,7 @@ const App = () => (
           <Route path="/payment" element={<PaymentSelection />} />
           <Route path="/payment/callback" element={<PaymentCallback />} />
           <Route path="/payment/pending" element={<PaymentPending />} />
+          <Route path="/agent-marketplace" element={<AgentMarketplace />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
