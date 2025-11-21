@@ -84,6 +84,15 @@ class ReceiptAnalysisOrchestrator:
                     "status": "success",
                     "confidence": vision_result.get("confidence", 0),
                 })
+                # CRITICAL DEBUGGING: Log what vision agent returned
+                logger.info(f"✅ Vision Agent Result:")
+                logger.info(f"  - ocr_text length: {len(vision_result.get('ocr_text', ''))}")
+                logger.info(f"  - ocr_text preview: {vision_result.get('ocr_text', '')[:100]}...")
+                logger.info(f"  - merchant_name: {vision_result.get('merchant_name')}")
+                logger.info(f"  - total_amount: {vision_result.get('total_amount')}")
+                logger.info(f"  - confidence: {vision_result.get('confidence')}")
+            else:
+                logger.error(f"❌ Vision Agent Failed: {str(vision_result)}")
             
             # Check metadata result
             if not isinstance(metadata_result, Exception):
@@ -93,6 +102,9 @@ class ReceiptAnalysisOrchestrator:
                     "status": "success",
                     "flags": len(metadata_result.get("flags", [])),
                 })
+                logger.info(f"✅ Metadata Agent Result: {len(metadata_result.get('flags', []))} flags")
+            else:
+                logger.error(f"❌ Metadata Agent Failed: {str(metadata_result)}")
             
             # Now run forensic with vision context for better analysis
             await progress.emit(
@@ -113,6 +125,19 @@ class ReceiptAnalysisOrchestrator:
                     "status": "success",
                     "manipulation_score": forensic_result.get("manipulation_score", 0),
                 })
+                # CRITICAL DEBUGGING: Log forensic data structure
+                logger.info(f"✅ Forensic Agent Result:")
+                logger.info(f"  - manipulation_score: {forensic_result.get('manipulation_score')}")
+                logger.info(f"  - verdict: {forensic_result.get('verdict')}")
+                logger.info(f"  - forensic_findings: {len(forensic_result.get('forensic_findings', []))} items")
+                logger.info(f"  - technical_details keys: {list(forensic_result.get('technical_details', {}).keys())}")
+                
+                # Check if ELA heatmap exists
+                ela_data = forensic_result.get('technical_details', {}).get('ela_analysis', {})
+                logger.info(f"  - ELA heatmap: {len(ela_data.get('heatmap', []))} rows")
+                logger.info(f"  - ELA suspicious_regions: {len(ela_data.get('suspicious_regions', []))}")
+            else:
+                logger.error(f"❌ Forensic Agent Failed: {str(forensic_result)}")
 
             # Run reputation agent if we have extracted text
             if "vision" in agent_results:
@@ -188,6 +213,18 @@ class ReceiptAnalysisOrchestrator:
                 "agent_logs": agent_logs,  # Critical: Agent execution logs
                 "processing_time_seconds": processing_time,
             }
+            
+            # CRITICAL DEBUGGING: Log final response structure before returning
+            logger.info(f"📊 ORCHESTRATOR FINAL RESPONSE:")
+            logger.info(f"  - receipt_id: {final_response['receipt_id']}")
+            logger.info(f"  - ocr_text length: {len(final_response['ocr_text'])}")
+            logger.info(f"  - ocr_text preview: {final_response['ocr_text'][:100]}...")
+            logger.info(f"  - trust_score: {final_response['trust_score']}")
+            logger.info(f"  - verdict: {final_response['verdict']}")
+            logger.info(f"  - forensic_findings: {len(final_response['forensic_details']['forensic_findings'])} items")
+            logger.info(f"  - technical_details keys: {list(final_response['forensic_details']['technical_details'].keys())}")
+            logger.info(f"  - heatmap: {len(final_response['forensic_details']['heatmap'])} rows")
+            logger.info(f"  - suspicious_regions: {len(final_response['forensic_details']['suspicious_regions'])}")
             
             # Store complete results to Firebase
             await progress.emit(
