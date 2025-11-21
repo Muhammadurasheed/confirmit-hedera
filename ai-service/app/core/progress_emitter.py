@@ -3,6 +3,7 @@ Real-time Progress Emitter for AI Agents
 Emits detailed progress updates to Firebase for backend consumption
 """
 import logging
+import json
 from typing import Optional, Dict, Any
 from datetime import datetime
 import numpy as np
@@ -103,8 +104,15 @@ class ProgressEmitter:
             # Add detail fields as flat top-level keys
             if sanitized_details:
                 for key, value in sanitized_details.items():
-                    # Convert to simple string to avoid nested object issues
-                    update_data[f'progress_detail_{key}'] = str(value) if not isinstance(value, (str, int, float, bool)) else value
+                    # CRITICAL FIX: Use json.dumps() for complex objects to ensure proper JSON format
+                    if not isinstance(value, (str, int, float, bool, type(None))):
+                        try:
+                            update_data[f'progress_detail_{key}'] = json.dumps(value)
+                        except (TypeError, ValueError) as e:
+                            logger.warning(f"⚠️ Failed to JSON serialize {key}: {e}, using string")
+                            update_data[f'progress_detail_{key}'] = str(value)
+                    else:
+                        update_data[f'progress_detail_{key}'] = value
             
             # Update Firebase with flat structure
             self.progress_ref.update(update_data)

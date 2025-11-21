@@ -84,52 +84,39 @@ export const useFirebaseReceiptProgress = ({
           if (data.status === 'completed' && data.analysis) {
             console.log('✅ Analysis completed:', data);
             
+            // Helper to parse Python-style JSON strings
+            const parsePythonJSON = (value: any): any => {
+              if (typeof value !== 'string') return value;
+              
+              try {
+                // First try direct JSON parse
+                return JSON.parse(value);
+              } catch (e) {
+                // If that fails, try converting Python format to JSON
+                try {
+                  const jsonCompatible = value
+                    .replace(/'/g, '"')           // Replace single quotes with double quotes
+                    .replace(/True/g, 'true')     // Convert Python True to JSON true
+                    .replace(/False/g, 'false')   // Convert Python False to JSON false
+                    .replace(/None/g, 'null');    // Convert Python None to JSON null
+                  return JSON.parse(jsonCompatible);
+                } catch (e2) {
+                  console.error('❌ Failed to parse value:', e2);
+                  return null;
+                }
+              }
+            };
+            
             // Parse forensic_findings if it's a string
             let forensicDetails = data.analysis.forensic_details;
             if (forensicDetails) {
-              // Parse forensic_findings if it's a JSON string
-              if (typeof forensicDetails.forensic_findings === 'string') {
-                try {
-                  forensicDetails.forensic_findings = JSON.parse(forensicDetails.forensic_findings);
-                  console.log('✅ Parsed forensic_findings from string');
-                } catch (e) {
-                  console.error('❌ Failed to parse forensic_findings:', e);
-                  forensicDetails.forensic_findings = [];
-                }
-              }
+              // Parse all complex fields that might be Python-style strings
+              forensicDetails.forensic_findings = parsePythonJSON(forensicDetails.forensic_findings) || [];
+              forensicDetails.technical_details = parsePythonJSON(forensicDetails.technical_details) || {};
+              forensicDetails.techniques_detected = parsePythonJSON(forensicDetails.techniques_detected) || [];
+              forensicDetails.authenticity_indicators = parsePythonJSON(forensicDetails.authenticity_indicators) || [];
               
-              // Parse technical_details if it's a JSON string
-              if (typeof forensicDetails.technical_details === 'string') {
-                try {
-                  forensicDetails.technical_details = JSON.parse(forensicDetails.technical_details);
-                  console.log('✅ Parsed technical_details from string');
-                } catch (e) {
-                  console.error('❌ Failed to parse technical_details:', e);
-                  forensicDetails.technical_details = {};
-                }
-              }
-              
-              // Parse techniques_detected if it's a JSON string
-              if (typeof forensicDetails.techniques_detected === 'string') {
-                try {
-                  forensicDetails.techniques_detected = JSON.parse(forensicDetails.techniques_detected);
-                  console.log('✅ Parsed techniques_detected from string');
-                } catch (e) {
-                  console.error('❌ Failed to parse techniques_detected:', e);
-                  forensicDetails.techniques_detected = [];
-                }
-              }
-              
-              // Parse authenticity_indicators if it's a JSON string
-              if (typeof forensicDetails.authenticity_indicators === 'string') {
-                try {
-                  forensicDetails.authenticity_indicators = JSON.parse(forensicDetails.authenticity_indicators);
-                  console.log('✅ Parsed authenticity_indicators from string');
-                } catch (e) {
-                  console.error('❌ Failed to parse authenticity_indicators:', e);
-                  forensicDetails.authenticity_indicators = [];
-                }
-              }
+              console.log('✅ All forensic fields parsed successfully');
             }
             
             // Merge root-level fields with analysis object
